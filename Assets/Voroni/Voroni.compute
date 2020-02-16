@@ -1,0 +1,60 @@
+﻿#pragma kernel VoronoiCells
+#pragma kernel VoroniCellDistances
+
+float4 VoroniInputs[12];
+float4 Colors[12];
+float ScaleFactor;
+
+RWTexture2D<float4> Result;
+
+[numthreads(8,8,1)]
+void VoronoiCells (uint3 id : SV_DispatchThreadID)
+{
+	// should be ok for this because the range of points is within the 0-1 range meaning the max distance could only be approx 1.4
+	// how to set something like float.MaxValue, it doesnt work in compute for some reason
+	float minDist = 100;
+
+	float xSamplePos = id.x/512.0;
+	float ySamplePos = id.y/512.0;
+	int minDistIndex = 0; // the index of the cell that has the minimum distance
+	for (uint i = 0; i < VoroniInputs.Length; i++)
+	{
+		float a = abs(VoroniInputs[i].x - xSamplePos);
+		float b = abs(VoroniInputs[i].y - ySamplePos);
+		float d = sqrt((a * a) + (b * b));
+		if(d < minDist)
+		{
+			minDist = d;
+			minDistIndex = i;
+		}
+	}
+
+	Result[id.xy] = Colors[minDistIndex];
+
+	// outputs the position on the texture, I.e. the UV coordinate, why it has to be divided by 512, no clue
+	// Result[id.xy] = float4(id.x/512.0,id.y/512.0,0,0);
+
+	//Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+}
+
+
+[numthreads(8,8,1)]
+void VoroniCellDistances (uint3 id : SV_DispatchThreadID)
+{
+	float minDist = 100;
+
+	float xSamplePos = id.x/512.0;
+	float ySamplePos = id.y/512.0;
+	for (uint i = 0; i < VoroniInputs.Length; i++)
+	{
+		float a = abs(VoroniInputs[i].x - xSamplePos);
+		float b = abs(VoroniInputs[i].y - ySamplePos);
+		float d = sqrt((a * a) + (b * b));
+		if(d < minDist)
+		{
+			minDist = d;
+		}
+	}
+
+	Result[id.xy] = float4(minDist, minDist, minDist, 0) * ScaleFactor;
+}
